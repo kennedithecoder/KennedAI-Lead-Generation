@@ -37,14 +37,11 @@ def get_business_details(yelp_url):
         if phone_tag:
             phone = phone_tag.get_text(strip=True)
 
-        address = soup.find("address")
-        city, state = "", ""
-        if address:
-            text = address.get_text(", ", strip=True)
-            parts = text.split(",")
-            if len(parts) >= 2:
-                city = parts[-2].strip()
-                state = parts[-1].strip().split()[0]
+        
+        address = ""
+        location = soup.find("p", {"data-font-weight": "semibold"})
+        if location:
+           address = location.get_text(strip=True)
 
         website = ""
         for a in soup.find_all("a", href=True):
@@ -56,8 +53,7 @@ def get_business_details(yelp_url):
         return {
             "name": name,
             "phone": phone,
-            "city": city,
-            "state": state,
+            "address": address,
             "website": website,
             "yelp_url": yelp_url
         }

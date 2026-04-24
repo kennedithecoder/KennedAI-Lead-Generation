@@ -7,9 +7,16 @@ INDUSTRIES = {
 }
 
 CITIES = [
-    "Atlanta GA", "Charlotte NC", "Nashville TN",
-    "Chicago IL", "Houston TX", "Dallas TX",
-    "Columbus OH", "Jacksonville FL", "Indianapolis IN"
+     # EST
+    "Naples FL", "Boca Raton FL", "Coral Gables FL",
+    "Bethesda MD", "McLean VA", "Greenwich CT",
+    "Charlotte NC", "Raleigh NC", "Atlanta GA",
+    "Princeton NJ", "Westchester NY",
+    # CST
+    "Highland Park TX", "Southlake TX", "The Woodlands TX",
+    "Austin TX", "Nashville TN", "Franklin TN",
+    "Naperville IL", "Winnetka IL", "Lake Forest IL",
+    "Edina MN", "Leawood KS"
 ]
 
 CHATBOT_SIGNATURES = [
