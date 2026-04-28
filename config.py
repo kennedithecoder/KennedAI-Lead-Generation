@@ -1,4 +1,4 @@
-SHEET_ID = "[Insert Sheet ID Here]"  # from the URL: /spreadsheets/d/THIS_PART/edit
+SHEET_ID = ""  # from the URL: /spreadsheets/d/THIS_PART/edit
 
 INDUSTRIES = {
     "dental": ["dentist", "dental clinic", "orthodontist"],

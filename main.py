@@ -14,10 +14,10 @@ client = gspread.authorize(creds)
 sheet = client.open_by_key(SHEET_ID).sheet1
 
 # Load existing data from sheet for duplicate checking
-existing_rows = sheet.get_all_values()[1:]  # skip header row
-existing_websites = set(row[6] for row in existing_rows if len(row) > 6 and row[6])
-existing_names = set(row[0].lower() for row in existing_rows if len(row) > 0 and row[0])
-existing_addresses = set(row[4].lower() for row in existing_rows if len(row) > 4 and row[4])
+existing_rows = sheet.get_all_values()[1:]
+existing_websites = set(row[5] for row in existing_rows if len(row) > 5 and row[5])   # column F - Website
+existing_names = set(row[2].lower() for row in existing_rows if len(row) > 2 and row[2])  # column C - Company
+existing_addresses = set(row[4].lower() for row in existing_rows if len(row) > 4 and row[4])  # column E - City, State
 
 searched = load_searched()
 
@@ -78,14 +78,18 @@ for industry_label, keywords in INDUSTRIES.items():
                 director = find_director(website) if website else ""
 
                 row = [
-                    name,
-                    details["phone"],
-                    email,
-                    director,
-                    address,
-                    industry_label.title(),
-                    website,
-                    "New Lead"
+                    director,               # A - POC
+                    "New Lead",             # B - Stage
+                    name,                   # C - Company
+                    industry_label.title(), # D - Industry
+                    address,                # E - City, State
+                    website,                # F - Website
+                    "",                     # G - LinkedIn (blank for now)
+                    details["phone"],       # H - Phone Number
+                    email,                  # I - Email
+                    "",                     # J - Service Offered (fill manually)
+                    "",                     # K - Fees Quoted (fill manually)
+                    "",                     # L - Notes (fill manually)
                 ]
 
                 sheet.append_row(row)
