@@ -1,4 +1,4 @@
-SHEET_ID = ""  # from the URL: /spreadsheets/d/THIS_PART/edit
+SHEET_ID = "13dyoKpETZh7AqMhP2pdXNARJZ_1AZiHOwpmWKTJdV9w"  # from the URL: /spreadsheets/d/THIS_PART/edit
 
 INDUSTRIES = {
     "dental": ["dentist", "dental clinic", "orthodontist"],

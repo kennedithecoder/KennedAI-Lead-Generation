@@ -1,62 +1,114 @@
-import requests
-from bs4 import BeautifulSoup
-import re
+import time
+import random
+from urllib.parse import quote_plus
+from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-}
+_playwright = None
+_browser = None
+_context = None
+_cached_details = {}
+
+BROWSER_ARGS = [
+    "--disable-blink-features=AutomationControlled",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+]
+
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
+
+
+def _get_context():
+    global _playwright, _browser, _context
+    if _context is None:
+        _playwright = sync_playwright().start()
+        _browser = _playwright.chromium.launch(headless=True, args=BROWSER_ARGS)
+        _context = _browser.new_context(
+            user_agent=USER_AGENT,
+            viewport={"width": 1280, "height": 800},
+            locale="en-US",
+        )
+        _context.add_init_script(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        )
+    return _context
+
+
+def close_browser():
+    global _playwright, _browser, _context
+    if _browser:
+        try:
+            _browser.close()
+        except Exception:
+            pass
+    if _playwright:
+        try:
+            _playwright.stop()
+        except Exception:
+            pass
+    _playwright = _browser = _context = None
+
+
+def _new_page():
+    page = _get_context().new_page()
+    page.set_extra_http_headers({"Accept-Language": "en-US,en;q=0.9"})
+    return page
+
 
 def search_yelp(keyword, city):
-    query = f"{keyword} {city}".replace(" ", "+")
-    url = f"https://www.yelp.com/search?find_desc={query}"
-    res = requests.get(url, headers=HEADERS, timeout=10)
-    soup = BeautifulSoup(res.text, "html.parser")
+    """Search Yellow Pages and return opaque keys for get_business_details."""
+    # Convert "Naples FL" -> "Naples, FL"
+    parts = city.rsplit(" ", 1)
+    geo = f"{parts[0]}, {parts[1]}" if len(parts) == 2 else city
 
-    businesses = []
-    links = soup.find_all("a", href=re.compile(r"/biz/"))
-    seen = set()
-    for link in links:
-        href = link.get("href", "")
-        if href not in seen and "/biz/" in href:
-            seen.add(href)
-            businesses.append("https://www.yelp.com" + href.split("?")[0])
+    url = (
+        f"https://www.yellowpages.com/search"
+        f"?search_terms={quote_plus(keyword)}"
+        f"&geo_location_terms={quote_plus(geo)}"
+    )
 
-    return businesses[:10]
-
-
-def get_business_details(yelp_url):
+    keys = []
+    page = _new_page()
     try:
-        res = requests.get(yelp_url, headers=HEADERS, timeout=10)
-        soup = BeautifulSoup(res.text, "html.parser")
+        page.goto(url, timeout=20000, wait_until="domcontentloaded")
+        page.wait_for_timeout(2500)
 
-        name = soup.find("h1")
-        name = name.get_text(strip=True) if name else "Unknown"
+        cards = page.query_selector_all("div.result")
+        for card in cards:
+            name_el = card.query_selector("a.business-name")
+            phone_el = card.query_selector("div.phone")
+            addr_el = card.query_selector("p.adr")
+            site_el = card.query_selector('a[href^="http"][rel="nofollow noopener"]')
 
-        phone = ""
-        phone_tag = soup.find("p", string=re.compile(r"\(\d{3}\)"))
-        if phone_tag:
-            phone = phone_tag.get_text(strip=True)
+            name = name_el.inner_text().strip() if name_el else "Unknown"
+            phone = phone_el.inner_text().strip() if phone_el else ""
+            address = addr_el.inner_text().strip() if addr_el else ""
+            website = site_el.get_attribute("href") if site_el else ""
 
-        
-        address = ""
-        location = soup.find("p", {"data-font-weight": "semibold"})
-        if location:
-           address = location.get_text(strip=True)
+            # Use website as cache key; fall back to name+address
+            key = website or f"nositefound://{name}|{address}"
+            _cached_details[key] = {
+                "name": name,
+                "phone": phone,
+                "address": address,
+                "website": website,
+                "yelp_url": key,
+            }
+            keys.append(key)
 
-        website = ""
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            if "yelp.com" not in href and href.startswith("http"):
-                website = href
-                break
-
-        return {
-            "name": name,
-            "phone": phone,
-            "address": address,
-            "website": website,
-            "yelp_url": yelp_url
-        }
+    except PWTimeout:
+        print(f"  Timeout searching: {keyword} in {city}")
     except Exception as e:
-        print(f"  Error scraping {yelp_url}: {e}")
-        return None
+        print(f"  Search error ({keyword} in {city}): {e}")
+    finally:
+        page.close()
+
+    time.sleep(random.uniform(1.0, 2.0))
+    return keys[:10]
+
+
+def get_business_details(key):
+    return _cached_details.get(key)
