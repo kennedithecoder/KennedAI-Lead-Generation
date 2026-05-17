@@ -1,14 +1,16 @@
 import re
 from urllib.parse import urlparse
-from scraper import _new_page
+from scraper import _new_check_page
 from config import CHATBOT_SIGNATURES
 
-DIRECTOR_TITLES = ["owner", "founder", "director", "president", "ceo", "principal", "manager", "dr."]
 CONTACT_KEYWORDS = ["contact", "about", "team", "staff", "reach", "connect"]
+
+# Titles used to find person names — order matters (most specific first)
+_TITLE_GROUP = r"(?:Owner|Founder|Director|President|CEO|Principal|Manager|DDS|DMD|MD|DO|RN|PA)"
+_NAME = r"[A-Z][a-z]+(?:-[A-Z][a-z]+)?\s+[A-Z][a-z]+"
 
 
 def _extract_email(text, page):
-    """Pull email from visible text or mailto links on the current page."""
     for a in page.query_selector_all("a[href^='mailto:']"):
         href = a.get_attribute("href") or ""
         email = href.replace("mailto:", "").split("?")[0].strip()
@@ -19,11 +21,21 @@ def _extract_email(text, page):
 
 
 def _extract_director(text):
-    for title in DIRECTOR_TITLES:
-        pattern = rf"([A-Z][a-z]+ [A-Z][a-z]+)[^\{{}}]{{0,40}}{title}"
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            return match.group(1)
+    # 1. "Dr. First Last" — strongest signal for dental/medical
+    m = re.search(rf"Dr\.?\s+({_NAME})", text)
+    if m:
+        return "Dr. " + m.group(1)
+
+    # 2. "First Last, Title" — name immediately followed by a comma and title
+    m = re.search(rf"({_NAME}),?\s+{_TITLE_GROUP}\b", text)
+    if m:
+        return m.group(1)
+
+    # 3. "Title: First Last" or "Title First Last" — title leads
+    m = re.search(rf"{_TITLE_GROUP}[:\s]+({_NAME})", text)
+    if m:
+        return m.group(1)
+
     return ""
 
 
@@ -55,7 +67,7 @@ def check_website(website):
     if not website or not website.startswith("http"):
         return False, "", ""
 
-    page = _new_page()
+    page = _new_check_page()
     try:
         page.goto(website, timeout=15000)
         page.wait_for_timeout(2000)

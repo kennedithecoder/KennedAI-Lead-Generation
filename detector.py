@@ -1,10 +1,10 @@
-from scraper import _new_page
+from scraper import _new_check_page
 from config import CHATBOT_SIGNATURES
 
 def has_chatbot(url):
     if not url or not url.startswith("http"):
         return False
-    page = _new_page()
+    page = _new_check_page()
     try:
         page.goto(url, timeout=15000)
         page.wait_for_timeout(3000)

@@ -3,3 +3,4 @@ venv/
 __pycache__/
 *.pyc
 searched.txt
+search_progress.json
